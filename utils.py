@@ -4,7 +4,7 @@ from glob import glob
 import numpy as np
 import torch
 
-from args import args
+from args_ import args
 
 if args.dtype == 'float32':
     default_dtype = np.float32

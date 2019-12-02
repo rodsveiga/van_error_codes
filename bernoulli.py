@@ -1,4 +1,3 @@
-# Bernoulli mixture model, used for baseline
 
 from math import log
 
@@ -11,7 +10,7 @@ from utils import default_dtype_torch
 class BernoulliMixture(nn.Module):
     def __init__(self, **kwargs):
         super(BernoulliMixture, self).__init__()
-        self.L = kwargs['L']
+        self.n = kwargs['N']
         ### Number of units at each layer
         self.net_width = kwargs['net_width']
         self.z2 = kwargs['z2']

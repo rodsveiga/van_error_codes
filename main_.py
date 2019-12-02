@@ -14,9 +14,9 @@ from numpy import sqrt
 from torch import nn
 
 import ising_
-from args import args
+from args_ import args
 from bernoulli import BernoulliMixture
-from made import MADE
+from made_ import MADE
 from pixelcnn import PixelCNN
 from utils import (
     clear_checkpoint,
@@ -35,18 +35,17 @@ def main():
     R_inv = 2
     M = R_inv*N
     K = 4
-    num_codes = 1
-    
+    num_codes = 1  
     p_prior = 0.1
     
-    #p_beta = 1.0 / ( 1.0 + np.exp(2.0*args.beta_p))
+
     
     start_time = time.time()
     
     
     
 
-    init_out_dir()
+    #init_out_dir()
     if args.clear_checkpoint:
         clear_checkpoint()
     last_step = get_last_checkpoint_step()
@@ -75,10 +74,6 @@ def main():
     my_log('Total number of trainable parameters: {}'.format(nparams))
     named_params = list(net.named_parameters())
     
-    ###
-    print('args_optimizer= ', args.optimizer)
-    #p = 1.0 / (1.0 + np.exp(2*args.beta))
-    print('beta= %.3f - beta_p= %.3f'  % (args.beta, args.beta_p))
     
     
 
@@ -128,20 +123,25 @@ def main():
           ### VAN: samples from the autoregressive network
           ### Possible options for `net`
           ### MADE, PixelCNN and BernoulliMixture
-          sample, x_hat = net.sample(args.batch_size)
+          sample, x_hat = net.sample(args.num_messages)
     assert not sample.requires_grad
     assert not x_hat.requires_grad
     ################################
        
     ##sample_in = sample.view(sample.shape[0], sample.shape[2]*sample.shape[3])
-    #sample_in = 2*torch.randint(0, 2, [args.batch_size, N], dtype=torch.float)-1.
+    #sample_in = 2*torch.randint(0, 2, [args.num_messages, N], dtype=torch.float)-1.
+    
+    print('sample: ', sample)
+    print('shape: ', sample.shape)
+    
+    
        
     
     ########################################################################
     ## With message prior
-    random = torch.rand([args.batch_size, N])
+    random = torch.rand([args.num_messages, N])
     
-    sample_in = torch.zeros([args.batch_size, N])
+    sample_in = torch.zeros([args.num_messages, N])
                     
     for j in range(random.shape[0]):
             
@@ -164,7 +164,7 @@ def main():
     path = '/home/rodsveiga/stat-mech-van/src_ising/sourlas_test_loop/'
     
     
-    torch.save(sample_in, path + 'sample_message_beta_p_%s_beta_%s.pt' % (bp_s, bs))
+    ##torch.save(sample_in, path + 'sample_message_beta_p_%s_beta_%s.pt' % (bp_s, bs))
     
     # Generate the codes
     C_list = []
@@ -188,7 +188,7 @@ def main():
         C = C_list[j]
         
         ### TensorBoard
-        writer = SummaryWriter()
+        ##writer = SummaryWriter()
         
         
         #########################################################################
@@ -276,8 +276,8 @@ def main():
                 ### VAN: samples from the autoregressive network
                 ### Possible options for `net`
                 ### MADE, PixelCNN and BernoulliMixture
-                #sample, x_hat = net.sample(args.batch_size)
-                sample, _ = net.sample(args.batch_size)
+                #sample, x_hat = net.sample(args.num_messages)
+                sample, _ = net.sample(args.num_messages)
             assert not sample.requires_grad
             #assert not x_hat.requires_grad
         
@@ -332,9 +332,9 @@ def main():
                     
                     
                     
-                    writer.add_scalar('Free_Energy/mean', FE_mean, step)
-                    writer.add_scalar('Free_Energy/std', FE_std, step)
-                    writer.add_scalar('Free_Energy/beta_step', beta, step)
+                    ##writer.add_scalar('Free_Energy/mean', FE_mean, step)
+                    ##writer.add_scalar('Free_Energy/std', FE_std, step)
+                    ##writer.add_scalar('Free_Energy/beta_step', beta, step)
                     sample_time = 0
                     train_time = 0
         
@@ -420,10 +420,10 @@ def main():
                                     std_norm,
                                     ))
                             
-                            writer.add_scalar('Grad_Norm/max', max_norm, step)
-                            writer.add_scalar('Grad_Norm/min', min_norm, step)
-                            writer.add_scalar('Grad_Norm/mean', mean_norm, step)
-                            writer.add_scalar('Grad_Norm/std', std_norm, step)
+                            ##writer.add_scalar('Grad_Norm/max', max_norm, step)
+                            ##writer.add_scalar('Grad_Norm/min', min_norm, step)
+                            ##writer.add_scalar('Grad_Norm/mean', mean_norm, step)
+                            ##writer.add_scalar('Grad_Norm/std', std_norm, step)
                             
                             
                         else:
@@ -468,7 +468,7 @@ def main():
         
         
         ## Saving the model
-        torch.save(net.state_dict(), path + 'saved_model_beta_p_%s_beta_%s_code_%d.pt' % (bp_s, bs, j))
+        ##torch.save(net.state_dict(), path + 'saved_model_beta_p_%s_beta_%s_code_%d.pt' % (bp_s, bs, j))
         
         
         
@@ -483,10 +483,10 @@ def main():
         #sign_tensor_ = sign_tensor_ + torch.sign(sample_.sum(dim=1))
         
         ### Sampling from the network to construct < S_j >
-        #sample_trained, _ = net.sample(args.batch_size)
+        #sample_trained, _ = net.sample(args.num_messages)
         
         #for j in range(num_samples - 1):
-        #    samp, _ = net.sample(args.batch_size)
+        #    samp, _ = net.sample(args.num_messages)
         #    sample_trained = sample_trained + samp
             
         #sample_trained = sample_trained.view(sample_trained.shape[0], 

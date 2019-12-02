@@ -1,94 +1,75 @@
-# MADE: Masked Autoencoder for Distribution Estimation
+# PixelCNN
 
 import torch
 from numpy import log
 from torch import nn
 
-from pixelcnn import ResBlock
 from utils import default_dtype_torch
 
 
+class ResBlock(nn.Module):
+    def __init__(self, block):
+        super(ResBlock, self).__init__()
+        self.block = block
 
-class MaskedLinear(nn.Linear):
-    def __init__(self, in_channels, out_channels, n, bias, exclusive):
-        super(MaskedLinear, self).__init__(in_channels * n, out_channels * n,
-                                           bias)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.n = n
-        self.exclusive = exclusive
+    def forward(self, x):
+        return x + self.block(x)
 
-        self.register_buffer('mask', torch.ones([self.n] * 2))
-        if self.exclusive:
-            self.mask = 1 - torch.triu(self.mask)
-        else:
-            self.mask = torch.tril(self.mask)
-        self.mask = torch.cat([self.mask] * in_channels, dim=1)
-        self.mask = torch.cat([self.mask] * out_channels, dim=0)
+
+class MaskedConv2d(nn.Conv2d):
+    def __init__(self, *args, **kwargs):
+        self.exclusive = kwargs.pop('exclusive')
+        super(MaskedConv2d, self).__init__(*args, **kwargs)
+
+        _, _, kh, kw = self.weight.shape
+        self.register_buffer('mask', torch.ones([kh, kw]))
+        self.mask[kh // 2, kw // 2 + (not self.exclusive):] = 0
+        self.mask[kh // 2 + 1:] = 0
         self.weight.data *= self.mask
 
         # Correction to Xavier initialization
         self.weight.data *= torch.sqrt(self.mask.numel() / self.mask.sum())
 
     def forward(self, x):
-        return nn.functional.linear(x, self.mask * self.weight, self.bias)
+        return nn.functional.conv2d(x, self.mask * self.weight, self.bias,
+                                    self.stride, self.padding, self.dilation,
+                                    self.groups)
 
     def extra_repr(self):
-        return (super(MaskedLinear, self).extra_repr() +
+        return (super(MaskedConv2d, self).extra_repr() +
                 ', exclusive={exclusive}'.format(**self.__dict__))
-        
-        
-        
-# TODO: reduce unused weights, maybe when torch.sparse is stable
-class ChannelLinear(nn.Linear):
-    def __init__(self, in_channels, out_channels, n, bias):
-        super(ChannelLinear, self).__init__(in_channels * n, out_channels * n,
-                                            bias)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.n = n
 
-        self.register_buffer('mask', torch.eye(self.n))
-        self.mask = torch.cat([self.mask] * in_channels, dim=1)
-        self.mask = torch.cat([self.mask] * out_channels, dim=0)
-        self.weight.data *= self.mask
 
-        # Correction to Xavier initialization
-        self.weight.data *= torch.sqrt(self.mask.numel() / self.mask.sum())
-
-    def forward(self, x):
-        return nn.functional.linear(x, self.mask * self.weight, self.bias)
-    
-    
-    
-class MADE(nn.Module):
+class PixelCNN(nn.Module):
     def __init__(self, **kwargs):
-        super(MADE, self).__init__()
-        
-        self.n = kwargs['N']  # Message length
+        super(PixelCNN, self).__init__()
+        self.L = kwargs['L']
         self.net_depth = kwargs['net_depth']
         self.net_width = kwargs['net_width']
+        self.half_kernel_size = kwargs['half_kernel_size']
         self.bias = kwargs['bias']
         self.z2 = kwargs['z2']
         self.res_block = kwargs['res_block']
         self.x_hat_clip = kwargs['x_hat_clip']
+        self.final_conv = kwargs['final_conv']
         self.epsilon = kwargs['epsilon']
         self.device = kwargs['device']
 
         # Force the first x_hat to be 0.5
         if self.bias and not self.z2:
-            self.register_buffer('x_hat_mask', torch.ones([self.n] * 2))
+            self.register_buffer('x_hat_mask', torch.ones([self.L] * 2))
             self.x_hat_mask[0, 0] = 0
-            self.register_buffer('x_hat_bias', torch.zeros([self.n] * 2))
+            self.register_buffer('x_hat_bias', torch.zeros([self.L] * 2))
             self.x_hat_bias[0, 0] = 0.5
 
         layers = []
         layers.append(
-            MaskedLinear(
+            MaskedConv2d(
                 1,
                 1 if self.net_depth == 1 else self.net_width,
-                self.n,
-                self.bias,
+                self.half_kernel_size * 2 + 1,
+                padding=self.half_kernel_size,
+                bias=self.bias,
                 exclusive=True))
         for count in range(self.net_depth - 2):
             if self.res_block:
@@ -98,34 +79,46 @@ class MADE(nn.Module):
                 layers.append(
                     self._build_simple_block(self.net_width, self.net_width))
         if self.net_depth >= 2:
-            layers.append(self._build_simple_block(self.net_width, 1))
+            layers.append(
+                self._build_simple_block(
+                    self.net_width, self.net_width if self.final_conv else 1))
+        if self.final_conv:
+            layers.append(nn.PReLU(self.net_width, init=0.5))
+            layers.append(nn.Conv2d(self.net_width, 1, 1))
         layers.append(nn.Sigmoid())
         self.net = nn.Sequential(*layers)
 
     def _build_simple_block(self, in_channels, out_channels):
         layers = []
-        layers.append(nn.PReLU(in_channels * self.n, init=0.5))
+        layers.append(nn.PReLU(in_channels, init=0.5))
         layers.append(
-            MaskedLinear(
-                in_channels, out_channels, self.n, self.bias, exclusive=False))
+            MaskedConv2d(
+                in_channels,
+                out_channels,
+                self.half_kernel_size * 2 + 1,
+                padding=self.half_kernel_size,
+                bias=self.bias,
+                exclusive=False))
         block = nn.Sequential(*layers)
         return block
 
     def _build_res_block(self, in_channels, out_channels):
         layers = []
+        layers.append(nn.Conv2d(in_channels, in_channels, 1, bias=self.bias))
+        layers.append(nn.PReLU(in_channels, init=0.5))
         layers.append(
-            ChannelLinear(in_channels, out_channels, self.n, self.bias))
-        layers.append(nn.PReLU(in_channels * self.n, init=0.5))
-        layers.append(
-            MaskedLinear(
-                in_channels, out_channels, self.n, self.bias, exclusive=False))
+            MaskedConv2d(
+                in_channels,
+                out_channels,
+                self.half_kernel_size * 2 + 1,
+                padding=self.half_kernel_size,
+                bias=self.bias,
+                exclusive=False))
         block = ResBlock(nn.Sequential(*layers))
         return block
 
     def forward(self, x):
-        #x = x.view(x.shape[0], -1)
         x_hat = self.net(x)
-        #x_hat = x_hat.view(x_hat.shape[0], 1, self.L, self.L)
 
         if self.x_hat_clip:
             # Clip value and preserve gradient
@@ -137,9 +130,6 @@ class MADE(nn.Module):
 
         # Force the first x_hat to be 0.5
         if self.bias and not self.z2:
-            print('x_hat shape= ', x_hat.shape)
-            print('x_hat_mask shape= ', self.x_hat_mask.shape)
-            print('x_hat_bias shape= ', self.x_hat_bias.shape)
             x_hat = x_hat * self.x_hat_mask + self.x_hat_bias
 
         return x_hat
@@ -151,18 +141,19 @@ class MADE(nn.Module):
     # x_hat will not be flipped by z2
     def sample(self, batch_size):
         sample = torch.zeros(
-            [batch_size, self.n],
+            [batch_size, 1, self.L, self.L],
             dtype=default_dtype_torch,
             device=self.device)
-        for i in range(self.n):
-            x_hat = self.forward(sample)
-            sample[:, i] = torch.bernoulli(
-                                 x_hat[:, i]).to(default_dtype_torch) * 2 - 1
+        for i in range(self.L):
+            for j in range(self.L):
+                x_hat = self.forward(sample)
+                sample[:, :, i, j] = torch.bernoulli(
+                    x_hat[:, :, i, j]).to(default_dtype_torch) * 2 - 1
 
         if self.z2:
             # Binary random int 0/1
             flip = torch.randint(
-                2, [batch_size, 1, 1],
+                2, [batch_size, 1, 1, 1],
                 dtype=sample.dtype,
                 device=sample.device) * 2 - 1
             sample *= flip

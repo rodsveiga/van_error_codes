@@ -76,6 +76,8 @@ group.add_argument(
     default=1e-7,
     help='small number to avoid 0 in division and log')
 
+group.add_argument('--res_block', action='store_true', help='use res block')
+
 
 
 group = parser.add_argument_group('optimizer parameters')
