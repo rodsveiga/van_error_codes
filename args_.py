@@ -40,6 +40,10 @@ group.add_argument(
         default=0.1, 
         help='prior flip rate -- p_prior = 1 / (1 + exp(2*beta_prior))')
 
+group.add_argument('--tensorboard', action='store_true', help='tensorboard monitor')
+
+group.add_argument('--save_model', action='store_true', help='save model and message')
+
 
 
 group = parser.add_argument_group('network parameters')

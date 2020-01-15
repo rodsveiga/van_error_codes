@@ -39,9 +39,7 @@ def main():
     
     p = args.p
     beta_p =  0.5*np.log( (1. - p) / p)
-    
-    
-
+   
     
     start_time = time.time()
     
@@ -121,18 +119,6 @@ def main():
     
 
     sample_start_time = time.time()
-    
-    with torch.no_grad():
-          ### VAN: samples from the autoregressive network
-          ### Possible options for `net`
-          ### MADE, PixelCNN and BernoulliMixture
-          sample, _ = net.sample(args.num_messages)
-    assert not sample.requires_grad
-    #assert not x_hat.requires_grad
-    
-    print('sample shape = ', sample.shape)
-  
-    
        
     
     ########################################################################
@@ -164,15 +150,18 @@ def main():
     
     path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/runs_files/'
     
-    
-    torch.save(sample_in, path + 'message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
+    if args.save_model:
+        torch.save(sample_in, path + 'message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
     
     # Generate the codes
     C_list = []
     for j in range(num_codes):
         C = torch.randint(0, N, [M, K])
         js = str(j)
-        ##torch.save(sample_in, path + 'code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+        
+        if args.save_model:
+            torch.save(sample_in, path + 'code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+        
         C_list.append(C)
         
       
@@ -183,10 +172,11 @@ def main():
         
         C = C_list[j]
         
-        ### TensorBoard
-        writer = SummaryWriter()
+        ### Tensorboard
+        if args.tensorboard:
+            writer = SummaryWriter()
         
-        #sample = sample_in
+        sample = sample_in
         
         for step in range(last_step + 1, args.max_step + 1):
                                                
@@ -215,6 +205,7 @@ def main():
                 
                 ### Beta*FE is the loss function
                 loss = log_prob + beta * energy_
+                
                         
             assert not energy_.requires_grad
             assert not loss.requires_grad
@@ -260,10 +251,12 @@ def main():
                 #print('free_energy_mean:')
                 #print(loss.mean())
             
-                free_energy_mean = loss.mean() / beta_p * N
-                free_energy_std = loss.std() / beta_p * N
-                #entropy_mean = -log_prob.mean() / args.L**2
+                free_energy_mean = loss.mean() / (beta_p * N)
+                free_energy_std = loss.std() / (beta_p * N)
+                entropy_mean = -log_prob.mean() / N 
+                entropy_std = -log_prob.std() / N
                 energy_mean = energy_.mean() / N
+                energy_std = energy_.std() / N
                 #mag = sample.mean(dim=0)
                 #mag_mean = mag.mean()
                 #mag_sqr_mean = (mag**2).mean()
@@ -275,17 +268,23 @@ def main():
                     FE_mean = free_energy_mean.item()
                     FE_std = free_energy_std.item()
                     E_mean = energy_mean.item()
-                    #FE_r_mean_std = np.abs(FE_std / FE_mean) 
+                    E_std = energy_std.item()
+                    S_mean = entropy_mean.item()
+                    S_std = entropy_std.item()
+                    overlap = (sample == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
                     
                     my_log(
                             #'step = {}, F = {:.8g}, F_std = {:.8g}, S = {:.8g}, E = {:.8g}, M = {:.8g}, Q = {:.8g}, lr = {:.3g}, beta = {:.8g}, sample_time = {:.3f}, train_time = {:.3f}, used_time = {:.3f}'
-                            'step = {}, F = {:.8g}, F_std = {:.8g}, E = {:.8g}, beta = {:.8g}, sample_time = {:.3f}, train_time = {:.3f}, used_time = {:.3f}'
+                            'step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
                             .format(
                                     step,
                                     FE_mean,
                                     FE_std,
-                                    #FE_r_mean_std,
                                     E_mean,
+                                    E_std,
+                                    S_mean,
+                                    S_std,
+                                    overlap,
                                     #mag_mean.item(),
                                     #mag_sqr_mean.item(),
                                     #optimizer.param_groups[0]['lr'],
@@ -296,21 +295,16 @@ def main():
                                     ))
                     
                     
-                    
-                    writer.add_scalar('Free_Energy/mean', FE_mean, step)
-                    writer.add_scalar('Free_Energy/std', FE_std, step)
-                    writer.add_scalar('Beta/step', beta, step)
-                    writer.add_scalar('Energy/mean', E_mean, step)
-                    
-                    
-                    
-                    sample_ = sample.view(sample.shape[0], sample.shape[2]*sample.shape[3])
-                    overlap = (sample_ == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
-                    writer.add_scalar('Overlap/local', overlap, step)
-                    
-                    
-                    
-                    
+                    if args.tensorboard:
+                        writer.add_scalar('Model/Free_Energy_mean', FE_mean, step)
+                        writer.add_scalar('Model/Free_Energy_std', FE_std, step)
+                        writer.add_scalar('Model/Energy_mean', E_mean, step)
+                        writer.add_scalar('Model/Entropy_mean', S_mean, step)
+                        writer.add_scalar('Model/Overlapl', overlap, step)
+                        writer.add_scalar('Model/Beta_step', beta, step)
+
+
+ 
                     sample_time = 0
                     train_time = 0
         
@@ -377,7 +371,7 @@ def main():
                 #                            ))
     
                 if args.print_grad:
-                    my_log('grad max_abs min_abs mean std')
+                    #my_log('grad max_abs min_abs mean std')
                     for name, param in named_params:
                         if param.grad is not None:
                             grad = param.grad
@@ -388,23 +382,24 @@ def main():
                             mean_norm = torch.mean(grad).item()
                             std_norm = torch.std(grad).item()
                             
-                            my_log('{} {:.3g} {:.3g} {:.3g} {:.3g}'.format(
-                                    name,
-                                    max_norm,
-                                    min_norm,
-                                    mean_norm,
-                                    std_norm,
-                                    ))
+                            #my_log('{} {:.3g} {:.3g} {:.3g} {:.3g}'.format(
+                            #        name,
+                            #        max_norm,
+                            #        min_norm,
+                            #        mean_norm,
+                             #       std_norm,
+                            #        ))
                             
-                            writer.add_scalar('Grad_Norm/max', max_norm, step)
-                            writer.add_scalar('Grad_Norm/min', min_norm, step)
-                            writer.add_scalar('Grad_Norm/mean', mean_norm, step)
-                            writer.add_scalar('Grad_Norm/std', std_norm, step)
+                            if args.tensorboard:
+                                writer.add_scalar('Grad_Norm/max', max_norm, step)
+                                writer.add_scalar('Grad_Norm/min', min_norm, step)
+                                writer.add_scalar('Grad_Norm/mean', mean_norm, step)
+                                writer.add_scalar('Grad_Norm/std', std_norm, step)
                             
                             
                         else:
                             my_log('{} None'.format(name))
-                    my_log('')
+                    #my_log('')
                     
                     
                     
@@ -444,7 +439,8 @@ def main():
         
         
         ## Saving the model
-        torch.save(net.state_dict(), path + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+        if args.save_model:
+            torch.save(net.state_dict(), path + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
         
         
         #torch.save(net.state_dict(), path + 'saved_model_beta_p_%s_beta_%s_code_%d.pt' % (bp_s, bs, j))
