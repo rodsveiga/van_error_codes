@@ -20,6 +20,14 @@ group.add_argument(
 
 
 group.add_argument(
+    '--K',
+    type=int,
+    default=4,
+    help='M sets of K randomly chosen indices')
+
+
+
+group.add_argument(
         '--p', 
         type=float, 
         default=0.5, 
@@ -141,7 +149,7 @@ group.add_argument(
 group.add_argument(
     '--save_step',
     type=int,
-    default=100,
+    default=0,
     help='number of steps to save network weights, 0 for disabled')
 
 
@@ -159,7 +167,7 @@ group.add_argument(
 group.add_argument(
     '--print_sample',
     type=int,
-    default=1,
+    default=0,
     help='number of samples to print to log on visual_step, 0 for disabled')
 
 
