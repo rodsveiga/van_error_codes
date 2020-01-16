@@ -4,27 +4,21 @@ import torch
 import numpy as np
 
 
-def sourlas(sample, sample_in, C, p, p_prior):
+def sourlas(sample, sample_in, C, p, p_prior, device):
     
-    #sample_ = sample.view(sample.shape[0], sample.shape[2]*sample.shape[3])
+         
+    en_tensor = torch.empty([sample.shape[0]], 
+                            device= device)
           
-    en_tensor = torch.empty([sample.shape[0]])
-      
-    #M = C.shape[0]
-    
     beta_prior = 0.5*np.log( (1. - p_prior) / p_prior)
     beta_p =  0.5*np.log( (1. - p) / p)
     
 
-    # Loop in j: over the hole batch
+    # Loop in j: over the hole set of messages
     
     en = 0
     
     for j in range(sample.shape[0]):     
-        #en = 0
-        #for k in range(M):
-            
-            #spinK = torch.prod(torch.take(sample_[j], C[k])).item()
             
         spinK = torch.take(sample[j], C).prod(dim=1)
         

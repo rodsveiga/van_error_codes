@@ -36,15 +36,14 @@ def main():
     K = args.K
     num_codes = 1  
     p_prior = args.p_prior
+    #device = args.cuda
     
     p = args.p
     beta_p =  0.5*np.log( (1. - p) / p)
    
     
     start_time = time.time()
-    
-    
-    
+               
 
     #init_out_dir()
     if args.clear_checkpoint:
@@ -125,7 +124,8 @@ def main():
     ## With message prior
     random = torch.rand([args.num_messages, N])
     
-    sample_in = torch.zeros([args.num_messages, N])
+    sample_in = torch.zeros([args.num_messages, N],
+                            device=args.device)
                     
     for j in range(random.shape[0]):
             
@@ -156,7 +156,7 @@ def main():
     # Generate the codes
     C_list = []
     for j in range(num_codes):
-        C = torch.randint(0, N, [M, K])
+        C = torch.randint(0, N, [M, K], device=args.device)
         js = str(j)
         
         if args.save_model:
@@ -201,7 +201,7 @@ def main():
                 #                      args.boundary)
                 
                 ## What do I choose here? args.beta or beta?
-                energy_ = energy.sourlas(sample, sample_in, C, p, p_prior)
+                energy_ = energy.sourlas(sample, sample_in, C, p, p_prior, args.device)
                 
                 ### Beta*FE is the loss function
                 loss = log_prob + beta * energy_
