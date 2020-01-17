@@ -44,6 +44,8 @@ group.add_argument('--tensorboard', action='store_true', help='tensorboard monit
 
 group.add_argument('--save_model', action='store_true', help='save model and message')
 
+group.add_argument('--log', action='store_true', help='save training info in a file')
+
 
 
 group = parser.add_argument_group('network parameters')

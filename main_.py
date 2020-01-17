@@ -36,23 +36,42 @@ def main():
     K = args.K
     num_codes = 1  
     p_prior = args.p_prior
-    #device = args.cuda
     
     p = args.p
     beta_p =  0.5*np.log( (1. - p) / p)
+    
+    if args.save_step == 0:
+        save_step = args.max_step
+    else:
+        save_step = args.save_step
+        
+    # String for saving
+    ps = str(p).replace('.', '')
+    pps = str(p_prior).replace('.', '')
+    Ns = str(N)
+    Ms = str(M)
+    Ks = str(K)
+    path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/'
+    
+    
    
     
     start_time = time.time()
                
 
     #init_out_dir()
-    if args.clear_checkpoint:
-        clear_checkpoint()
-    last_step = get_last_checkpoint_step()
-    if last_step >= 0:
-        my_log('\nCheckpoint found: {}\n'.format(last_step))
-    else:
-        clear_log()
+    #if args.clear_checkpoint:
+    #    clear_checkpoint()
+    #last_step = get_last_checkpoint_step()    
+    #if last_step >= 0:
+    #    my_log('\nCheckpoint found: {}\n'.format(last_step))
+    #else:
+    #    clear_log()
+    
+
+        
+    last_step = -1
+        
     print_args()
 
     ### User chooses what type o NN will provide the parametrization of 
@@ -66,12 +85,18 @@ def main():
     else:
         raise ValueError('Unknown net: {}'.format(args.net))
     net.to(args.device)
-    my_log('{}\n'.format(net))
-
+    
+    
+    #####################################
+    print('{}\n'.format(net))
+##############################################
+    
+    
     params = list(net.parameters())
     params = list(filter(lambda p: p.requires_grad, params))
     nparams = int(sum([np.prod(p.shape) for p in params]))
-    my_log('Total number of trainable parameters: {}'.format(nparams))
+    
+    print('Total number of trainable parameters: {}'.format(nparams))
     named_params = list(net.named_parameters())
     
     
@@ -107,11 +132,25 @@ def main():
             scheduler.load_state_dict(state['scheduler'])
 
     init_time = time.time() - start_time
-    my_log('init_time = {:.3f}'.format(init_time))
-
+    print('init_time = {:.3f}'.format(init_time))
+    
+    
+    ##############################################        
+    if args.log:
+                
+        file = open(path + 'logs/log_N_%s_M_%s_K_%s_p_%s_p_prior_%s.txt' % (Ns, Ms, Ks,ps, pps), 'a')
+        
+        for k, v in args._get_kwargs():
+            file.write('{} = {}'.format(k, v) + '\n')
+        
+        file.write('\n' + '{}\n'.format(net) + '\n' + 'Total number of trainable parameters: {}'.format(nparams) + '\n')
+        file.write('init_time = {:.3f}'.format(init_time) + '\n' + '-----------------------------' + '\n' + 'Training...')
+    ##############################################
+        
+            
 
     print('-----------------------------')
-    my_log('Training...')
+    print('Training...')
     sample_time = 0
     train_time = 0
     start_time = time.time()
@@ -126,6 +165,12 @@ def main():
     
     sample_in = torch.zeros([args.num_messages, N],
                             device=args.device)
+    
+    
+        #file = open('output_test.txt', 'a')
+    #file.write(str(out1) + '  ' + str(out2) + '\n') 
+    #file.close() 
+    
                     
     for j in range(random.shape[0]):
             
@@ -141,17 +186,8 @@ def main():
     ########################################################################
     
     
-    # Saving the initial message
-    ps = str(p).replace('.', '')
-    pps = str(p_prior).replace('.', '')
-    Ns = str(N)
-    Ms = str(M)
-    Ks = str(K)
-    
-    path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/runs_files/'
-    
     if args.save_model:
-        torch.save(sample_in, path + 'message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
+        torch.save(sample_in, path + 'models/message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
     
     # Generate the codes
     C_list = []
@@ -160,7 +196,7 @@ def main():
         js = str(j)
         
         if args.save_model:
-            torch.save(sample_in, path + 'code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+            torch.save(sample_in, path + 'models/code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
         
         C_list.append(C)
         
@@ -245,37 +281,37 @@ def main():
    
             if args.print_step and step % args.print_step == 0:
                 
-                #print('loss:')
-                #print(loss)
-                #print('loss shape= %d' % loss.shape)
-                #print('free_energy_mean:')
-                #print(loss.mean())
-            
-                free_energy_mean = loss.mean() / (beta_p * N)
-                free_energy_std = loss.std() / (beta_p * N)
-                entropy_mean = -log_prob.mean() / N 
-                entropy_std = -log_prob.std() / N
-                energy_mean = energy_.mean() / N
-                energy_std = energy_.std() / N
-                #mag = sample.mean(dim=0)
-                #mag_mean = mag.mean()
-                #mag_sqr_mean = (mag**2).mean()
-                #if step % 10 == 0:
                 if step > 0:                        
                     sample_time /= args.print_step
                     train_time /= args.print_step
                     used_time = time.time() - start_time
-                    FE_mean = free_energy_mean.item()
-                    FE_std = free_energy_std.item()
-                    E_mean = energy_mean.item()
-                    E_std = energy_std.item()
-                    S_mean = entropy_mean.item()
-                    S_std = entropy_std.item()
+                    FE_mean = ( loss.mean() / (beta_p * N) ).item()
+                    FE_std = ( loss.std() / (beta_p * N) ).item()
+                    E_mean = ( energy_.mean() / N ).item()
+                    E_std = ( energy_.std() / N ).item()
+                    S_mean = ( -log_prob.mean() / N ).item()
+                    S_std = ( -log_prob.std() / N ).item()
                     overlap = (sample == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
                     
-                    my_log(
-                            #'step = {}, F = {:.8g}, F_std = {:.8g}, S = {:.8g}, E = {:.8g}, M = {:.8g}, Q = {:.8g}, lr = {:.3g}, beta = {:.8g}, sample_time = {:.3f}, train_time = {:.3f}, used_time = {:.3f}'
-                            'step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
+                    #my_log(
+#
+#                            'step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
+#                            .format(
+#                                    step,
+#                                    FE_mean,
+#                                    FE_std,
+#                                    E_mean,
+#                                    E_std,
+#                                    S_mean,
+#                                    S_std,
+#                                    overlap,
+#                                    beta,
+#                                    sample_time,
+#                                    train_time,
+#                                    used_time,
+#                                    ))
+                    
+                    print('step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
                             .format(
                                     step,
                                     FE_mean,
@@ -285,14 +321,30 @@ def main():
                                     S_mean,
                                     S_std,
                                     overlap,
-                                    #mag_mean.item(),
-                                    #mag_sqr_mean.item(),
-                                    #optimizer.param_groups[0]['lr'],
                                     beta,
                                     sample_time,
                                     train_time,
                                     used_time,
                                     ))
+                    
+                    if args.log:
+                        
+                         file.write('step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
+                                    .format(
+                                            step,
+                                            FE_mean,
+                                            FE_std,
+                                            E_mean,
+                                            E_std,
+                                            S_mean,
+                                            S_std,
+                                            overlap,
+                                            beta,
+                                            sample_time,
+                                            train_time,
+                                            used_time,
+                                            ) + '\n')
+                        
                     
                     
                     if args.tensorboard:
@@ -300,78 +352,13 @@ def main():
                         writer.add_scalar('Model/Free_Energy_std', FE_std, step)
                         writer.add_scalar('Model/Energy_mean', E_mean, step)
                         writer.add_scalar('Model/Entropy_mean', S_mean, step)
-                        writer.add_scalar('Model/Overlapl', overlap, step)
+                        writer.add_scalar('Model/Overlap', overlap, step)
                         writer.add_scalar('Model/Beta_step', beta, step)
 
-
- 
-                    sample_time = 0
-                    train_time = 0
         
-                    if args.save_sample:
-                        state = {
-                                'sample': sample,
-                                #'x_hat': x_hat,
-                                'log_prob': log_prob,
-                                'energy': energy,
-                                'loss': loss,
-                                }
-                        torch.save(state, '{}_save/{}.sample'.format(
-                                args.out_filename, step))
-                        
-                        if (args.out_filename and args.save_step
-                            and step % args.save_step == 0):
-                            state = {
-                                    'net': net.state_dict(),
-                                    'optimizer': optimizer.state_dict(),
-                                    }
-                            if args.lr_schedule:
-                                state['scheduler'] = scheduler.state_dict()
-                                torch.save(state, '{}_save/{}.state'.format(
-                                        args.out_filename, step))
-                                
-                                if (args.out_filename and args.visual_step
-                                    and step % args.visual_step == 0):
-                                    torchvision.utils.save_image(
-                                            sample,
-                                            '{}_img/{}.png'.format(args.out_filename, step),
-                                            nrow=int(sqrt(sample.shape[0])),
-                                            padding=0,
-                                            normalize=True)
-                                    
-                
-                #if args.print_sample:
-                #    x_hat_np = x_hat.view(x_hat.shape[0], -1).cpu().numpy()
-                #    x_hat_std = np.std(x_hat_np, axis=0).reshape([args.L] * 2)
-    
-                #    x_hat_cov = np.cov(x_hat_np.T)
-                #    x_hat_cov_diag = np.diag(x_hat_cov)
-                #    x_hat_corr = x_hat_cov / (
-                #            sqrt(x_hat_cov_diag[:, None] * x_hat_cov_diag[None, :]) +
-                #            args.epsilon)
-                #    x_hat_corr = np.tril(x_hat_corr, -1)
-                #    x_hat_corr = np.max(np.abs(x_hat_corr), axis=1)
-                #    x_hat_corr = x_hat_corr.reshape([args.L] * 2)
-                    
-                #    energy_np = energy.cpu().numpy()
-                #    energy_count = np.stack(
-                #            np.unique(energy_np, return_counts=True)).T
-                            
-                #    my_log(
-                #                    '\nsample\n{}\nx_hat\n{}\nlog_prob\n{}\nenergy\n{}\nloss\n{}\nx_hat_std\n{}\nx_hat_corr\n{}\nenergy_count\n{}\n'
-                #                    .format(
-                #                            sample[:args.print_sample, 0],
-                #                            x_hat[:args.print_sample, 0],
-                #                            log_prob[:args.print_sample],
-                #                            energy[:args.print_sample],
-                #                            loss[:args.print_sample],
-                #                            x_hat_std,
-                #                            x_hat_corr,
-                #                            energy_count,
-                #                            ))
-    
+        
                 if args.print_grad:
-                    #my_log('grad max_abs min_abs mean std')
+                    
                     for name, param in named_params:
                         if param.grad is not None:
                             grad = param.grad
@@ -381,14 +368,7 @@ def main():
                             min_norm = torch.min(grad_abs).item()
                             mean_norm = torch.mean(grad).item()
                             std_norm = torch.std(grad).item()
-                            
-                            #my_log('{} {:.3g} {:.3g} {:.3g} {:.3g}'.format(
-                            #        name,
-                            #        max_norm,
-                            #        min_norm,
-                            #        mean_norm,
-                             #       std_norm,
-                            #        ))
+  
                             
                             if args.tensorboard:
                                 writer.add_scalar('Grad_Norm/max', max_norm, step)
@@ -399,8 +379,18 @@ def main():
                             
                         else:
                             my_log('{} None'.format(name))
+                            
+                            
+            if args.save_model and step % save_step == 0:
+                if step > 0:
+                    steps = str(step)
+                    torch.save(net.state_dict(), path + 'models/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s_step_%s.pt' % (Ns, Ms, Ks,ps, pps, js, steps))
+                
                     #my_log('')
-                    
+        
+        if args.log:
+            file.close()
+            
                     
                     
    ################################################################################
@@ -439,8 +429,8 @@ def main():
         
         
         ## Saving the model
-        if args.save_model:
-            torch.save(net.state_dict(), path + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+        #if args.save_model and:
+        #    torch.save(net.state_dict(), path + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
         
         
         #torch.save(net.state_dict(), path + 'saved_model_beta_p_%s_beta_%s_code_%d.pt' % (bp_s, bs, j))
