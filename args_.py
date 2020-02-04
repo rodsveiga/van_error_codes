@@ -25,6 +25,12 @@ group.add_argument(
     default=4,
     help='M sets of K randomly chosen indices')
 
+group.add_argument(
+    '--num_codes',
+    type=int,
+    default=1,
+    help='Number of codes')
+
 
 
 group.add_argument(
@@ -45,6 +51,8 @@ group.add_argument('--tensorboard', action='store_true', help='tensorboard monit
 group.add_argument('--save_model', action='store_true', help='save model and message')
 
 group.add_argument('--log', action='store_true', help='save training info in a file')
+
+group.add_argument('--laptop', action='store_true', help='running in the personal laptop')
 
 
 
