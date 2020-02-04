@@ -34,7 +34,7 @@ def main():
     N = args.N
     M = args.M
     K = args.K
-    num_codes = 1  
+    num_codes = args.num_codes 
     p_prior = args.p_prior
     
     p = args.p
@@ -46,13 +46,17 @@ def main():
         save_step = args.save_step
         
     # String for saving
-    ps = str(p).replace('.', '')
-    pps = str(p_prior).replace('.', '')
+    ps = '{:.3f}'.format(p).replace('.', '')
+    pps = '{:.3f}'.format(p_prior).replace('.', '')
     Ns = str(N)
     Ms = str(M)
     Ks = str(K)
-    path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/'
     
+    
+    if args.laptop:
+        path = '/home/rodrigo/Dropbox/DOC/van_error_codes/'
+    else:
+        path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/'
     
    
     
@@ -196,7 +200,7 @@ def main():
         js = str(j)
         
         if args.save_model:
-            torch.save(sample_in, path + 'models/code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+            torch.save(C, path + 'models/code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
         
         C_list.append(C)
         

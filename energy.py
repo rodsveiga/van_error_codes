@@ -27,6 +27,9 @@ def sourlas(sample, sample_in, C, p, p_prior, device):
         ###
             
         ###################################################################
+
+        ### Corrupted version of the message
+        ### Observed that this is calculated at each iteration
             
         random = torch.rand(J0.shape)
                       
