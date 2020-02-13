@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 torch.manual_seed(12) 
 from numpy import sqrt
 from torch import nn
+import os
 
 import energy
 from args_ import args
@@ -27,6 +28,7 @@ from utils import (
     my_log,
     print_args,
 )
+from bp import BP_LDPC
 
 
 def main():
@@ -35,10 +37,14 @@ def main():
     M = args.M
     K = args.K
     num_codes = args.num_codes 
-    p_prior = args.p_prior
-    
+    net_depth = args.net_depth
+    net_width = args.net_width
+       
     p = args.p
     beta_p =  0.5*np.log( (1. - p) / p)
+
+    p_prior = args.p_prior
+    beta_prior = 0.5*np.log( (1. - p_prior) / p_prior)
     
     if args.save_step == 0:
         save_step = args.max_step
@@ -51,12 +57,24 @@ def main():
     Ns = str(N)
     Ms = str(M)
     Ks = str(K)
+    steps = str(args.max_step)
     
-    
+    # Select path for saving
     if args.laptop:
-        path = '/home/rodrigo/Dropbox/DOC/van_error_codes/'
+        path_ = '/home/rodrigo/Dropbox/DOC/van_error_codes/models'
     else:
-        path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/'
+        path_ = '/home/rodsveiga/Dropbox/DOC/van_error_codes/models'
+
+    # Creating the directory to save important information
+
+    path = path_ + '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s' % (Ns, Ms, Ks, ps, pps, str(net_depth), str(net_width), steps)
+
+    try:
+        os.mkdir(path)
+    except OSError:
+        print ("Creation of the directory %s failed" % path)
+    else:
+        print ("Successfully created the directory %s " % path)
     
    
     
@@ -93,7 +111,7 @@ def main():
     
     #####################################
     print('{}\n'.format(net))
-##############################################
+    ##############################################
     
     
     params = list(net.parameters())
@@ -140,15 +158,15 @@ def main():
     
     
     ##############################################        
-    if args.log:
+    #if args.log:
                 
-        file = open(path + 'logs/log_N_%s_M_%s_K_%s_p_%s_p_prior_%s.txt' % (Ns, Ms, Ks,ps, pps), 'a')
+    #    file = open(path + '/log_N_%s_M_%s_K_%s_p_%s_p_prior_%s.txt' % (Ns, Ms, Ks,ps, pps), 'a')
         
-        for k, v in args._get_kwargs():
-            file.write('{} = {}'.format(k, v) + '\n')
+    #    for k, v in args._get_kwargs():
+    #        file.write('{} = {}'.format(k, v) + '\n')
         
-        file.write('\n' + '{}\n'.format(net) + '\n' + 'Total number of trainable parameters: {}'.format(nparams) + '\n')
-        file.write('init_time = {:.3f}'.format(init_time) + '\n' + '-----------------------------' + '\n' + 'Training...')
+    #    file.write('\n' + '{}\n'.format(net) + '\n' + 'Total number of trainable parameters: {}'.format(nparams) + '\n')
+    #    file.write('init_time = {:.3f}'.format(init_time) + '\n' + '-----------------------------' + '\n' + 'Training...')
     ##############################################
         
             
@@ -165,48 +183,67 @@ def main():
     
     ########################################################################
     ## With message prior
-    random = torch.rand([args.num_messages, N])
+    random = torch.rand([args.num_messages, N],
+                        device=args.device)
+
+    # -1 with probability p_prior
+    # +1 with probability 1 - p_prior
+    sample_in = 2* (random > p_prior).float() - 1
+
+    if args.save_model:
+        torch.save(sample_in, path + '/message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
+
+    ########################################################################
     
-    sample_in = torch.zeros([args.num_messages, N],
-                            device=args.device)
+    #sample_in = torch.zeros([args.num_messages, N],
+    #                        device=args.device)
     
-    
-        #file = open('output_test.txt', 'a')
-    #file.write(str(out1) + '  ' + str(out2) + '\n') 
-    #file.close() 
-    
-                    
-    for j in range(random.shape[0]):
+                       
+    #for j in range(random.shape[0]):
             
-        for k in range(random.shape[1]):
+    #    for k in range(random.shape[1]):
                 
             #### -1 with probability p_prior
-            if random[j,k] <= p_prior:
-                sample_in[j,k] = -1.
+    #        if random[j,k] <= p_prior:
+    #            sample_in[j,k] = -1.
             #### +1 with probability 1 - p_prior
-            else:
-                sample_in[j,k] = +1.
+    #        else:
+    #            sample_in[j,k] = +1.
+
+
+    #           random = torch.rand([n, N])
+
                 
     ########################################################################
     
     
-    if args.save_model:
-        torch.save(sample_in, path + 'models/message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
-    
     # Generate the codes
     C_list = []
-    for j in range(num_codes):
+
+    for k in range(num_codes):
         C = torch.randint(0, N, [M, K], device=args.device)
-        js = str(j)
         
         if args.save_model:
-            torch.save(C, path + 'models/code_N_%s_M_%s_K_%s_p_%s_p_prior_%s_j_%s.pt' % (Ns, Ms, Ks,ps, pps, js))
+            torch.save(C, path + '/codes_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, str(k)))
         
         C_list.append(C)
         
       
     
     for j in range(num_codes):
+
+
+        ##############################################        
+        if args.log:
+                
+            file = open(path + '/log_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.txt' % (Ns, Ms, Ks, ps, pps, str(j)), 'a')
+        
+            for k, v in args._get_kwargs():
+                file.write('{} = {}'.format(k, v) + '\n')
+        
+            file.write('\n' + '{}\n'.format(net) + '\n' + 'Total number of trainable parameters: {}'.format(nparams) + '\n')
+            file.write('init_time = {:.3f}'.format(init_time) + '\n' + '-----------------------------' + '\n' + 'Training...')
+        ##############################################
         
         print('Code number= %d' % j)
         
@@ -217,6 +254,41 @@ def main():
             writer = SummaryWriter()
         
         sample = sample_in
+
+
+        ##################################################################
+        ##### Encoding
+
+        # Initializing
+        J0 = torch.take(sample_in[0], C).prod(dim=1)
+        J0 = J0.unsqueeze(0)
+
+        # Loop over all messages
+        for l in range(1, sample_in.shape[0]):
+    
+            J0_ = torch.take(sample_in[l], C).prod(dim=1)
+            J0_ = J0_.unsqueeze(0)
+    
+            J0 = torch.cat((J0, J0_), dim= 0)
+
+        if args.save_model:
+            torch.save(J0, path + '/encoded_J_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, str(j)))
+
+        #####  Corrupted version (if we work like this, the overlap decreases. It is curious. The machine is better when we corrupt)
+
+        random = torch.rand(J0.shape)
+        ## Flip tensor: -1 with probability p
+        flip = 2*(random > p).float() - 1
+
+        ## J corrupted version: element wise multiplication
+        J = torch.mul(J0, flip)
+
+        if args.save_model:
+            torch.save(J, path + '/corrupted_J_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, str(j)))
+
+        ##################################################################
+
+
         
         for step in range(last_step + 1, args.max_step + 1):
                                                
@@ -241,7 +313,7 @@ def main():
                 #                      args.boundary)
                 
                 ## What do I choose here? args.beta or beta?
-                energy_ = energy.sourlas(sample, sample_in, C, p, p_prior, args.device)
+                energy_ = energy.sourlas(sample, J, C, beta_p, beta_prior, args.device)
                 
                 ### Beta*FE is the loss function
                 loss = log_prob + beta * energy_
@@ -387,13 +459,63 @@ def main():
                             
             if args.save_model and step % save_step == 0:
                 if step > 0:
-                    steps = str(step)
-                    torch.save(net.state_dict(), path + 'models/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s_step_%s.pt' % (Ns, Ms, Ks,ps, pps, js, steps))
+                    torch.save(net.state_dict(), path + '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s_step_%s.pt' % (Ns, Ms, Ks,ps, pps, str(j), steps))
                 
                     #my_log('')
         
         if args.log:
             file.close()
+
+        ps_ = '{:.3f}'.format(p)
+        overlap_ = '{:.6f}'.format(overlap)
+
+
+        PATH_ = path_ + '/p_versus_overlap_N_%s_M_%s_K_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s_code_%s' % (Ns, Ms, Ks, pps, str(net_depth), str(net_width), steps, str(j))
+        file_ = open(PATH_, 'a')
+        file_.write(ps_ + '  ' + overlap_ + '\n') 
+        file_.close()
+
+        print('overlap = ', overlap)
+
+
+
+        ##### BELIEF PROPAGATION #### 
+
+
+        if args.BP:
+
+            overlap_BP_ = []
+
+            #args.BP_it
+
+            for k in range(int(J.shape[0]/10)):
+
+                print('----BP message %d' % k)
+
+                t0 = time.time()
+       
+                opt_dec_Bayes_BP = BP_LDPC(N, M, J[k], beta, beta_prior, C, sample_in[k], num_it= args.BP_it, verbose= 1)
+
+                t1 = time.time()
+
+                print('time = {:.3f}'.format(t1 - t0))
+    
+                overlap_BP_.append(opt_dec_Bayes_BP)
+
+            overlap_BP = np.mean(np.array(overlap_BP_))
+
+            num_it = str(args.BP_it)
+            overlap_BP_ = '{:.6f}'.format(overlap_BP)
+
+
+            PATH_ = path_ + '/p_versus_overlap_BP_N_%s_M_%s_K_%s_p_prior_%s_code_%s_it_%s' % (Ns, Ms, Ks, pps, str(j), num_it)
+            file_ = open(PATH_, 'a')
+            file_.write(ps_ + '  ' + overlap_BP_ + '\n') 
+            file_.close()
+
+
+
+        #######################################
             
                     
                     

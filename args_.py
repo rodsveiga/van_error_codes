@@ -54,6 +54,14 @@ group.add_argument('--log', action='store_true', help='save training info in a f
 
 group.add_argument('--laptop', action='store_true', help='running in the personal laptop')
 
+group.add_argument('--BP', action='store_true', help='BP computation')
+
+group.add_argument(
+    '--BP_it',
+    type=int,
+    default=10,
+    help='Number of BP iterations')
+
 
 
 group = parser.add_argument_group('network parameters')
