@@ -13,3 +13,4 @@ done
 #done
 
 
+python sampling.py --N 250 --M 500 --K 4 --p 0.1 --p_prior 0.01 --num_messages 100 --max_step 1000 --net made --net_depth 2 --net_width 3  --beta_anneal 0.998 --clip_grad 1 --print_grad --log --laptop

@@ -162,7 +162,7 @@ class MADE(nn.Module):
         if self.z2:
             # Binary random int 0/1
             flip = torch.randint(
-                2, [batch_size, 1, 1],
+                2, [batch_size, 1],
                 dtype=sample.dtype,
                 device=sample.device) * 2 - 1
             sample *= flip

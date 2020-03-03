@@ -38,18 +38,38 @@ def main():
     p = args.p
     
     
-    num_samples = 10
-    num_codes = 1       
-    
-    
+    num_samples = 15
+    num_codes = 1
+    code = str(0)
+
+    # String
+    ps = '{:.3f}'.format(p).replace('.', '')
+    pps = '{:.3f}'.format(p_prior).replace('.', '')
     Ns = str(N)
     Ms = str(M)
-    Ks = str(K) 
-    pps = str(p_prior).replace('.', '')
-    ps = str(p).replace('.', '')
-       
+    Ks = str(K)
+    steps = str(args.max_step)
     
-    path = '/home/rodsveiga/Dropbox/DOC/van_error_codes/runs_files/'
+        
+    # Select path for retrieving model and messages
+    if args.laptop:
+        path_ = '/home/rodrigo/Dropbox/DOC/van_error_codes/models/'
+    else:
+        path_ = '/home/rodsveiga/Dropbox/DOC/van_error_codes/models/'
+
+    # Path for given choices of N, M, K, and so on
+
+    path__ = path_ + '_N_%s_M_%s_K_%s_p_prior_%s_steps_%s_code_%s/' % (Ns, Ms, Ks, pps, steps, code)
+
+ 
+    ##############
+
+    path = path__ + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_steps_%s/' % (Ns, Ms, Ks, ps, pps, steps)
+
+
+
+
+    
     
     message = torch.load(path + 'message_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
     
@@ -70,25 +90,43 @@ def main():
         
         ks = str(k)
                         
-        PATH = path + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s.pt' % (Ns, Ms, Ks,ps, pps, ks)
+        PATH = path + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s_step_%s.pt' % (Ns, Ms, Ks,ps, pps, ks, str(steps))
         
                 
         net = MADE(**vars(args))
         net.load_state_dict(torch.load(PATH))
+
+        sample_ = torch.zeros(message.shape)
 
     
         print('Running code %d' % k)
     
         for j in range(num_samples):
             
-            print('j= ', j)
-        
-               
-            sample, _ = net.sample(args.num_messages)  
+            #print('j= ', j)
+                       
+            sample, _ = net.sample(args.num_messages)
+
+            #print('sample', sample)  
             
             overlap = (sample == message).sum().item() / (message.shape[0]*message.shape[1])
             
             print('sample= %d -- overlap= %.5f' % (j, overlap))
+
+            #print('av_over_samples=', torch.sign(torch.sum(sample, dim=1)/100).sum().item())
+            #print('av_over_mess=', torch.sign(torch.sum(sample, dim=1)/100).sum().item())
+
+            sample_ = sample_ + sample
+
+        print('-----Final sample', torch.sign(sample_))
+
+        overlap_av = (torch.sign(sample_) == message).sum().item() / (message.shape[0]*message.shape[1])
+
+        print('-----overplap_av=', overlap_av )
+
+        torch.save(torch.sign(sample_), path + 'av_sample_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
+
+            
 
     
     

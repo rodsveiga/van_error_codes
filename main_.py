@@ -67,7 +67,8 @@ def main():
 
     # Creating the directory to save important information
 
-    path = path_ + '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s' % (Ns, Ms, Ks, ps, pps, str(net_depth), str(net_width), steps)
+
+    path = path_+ '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s' % (Ns, Ms, Ks, ps, pps, str(net_depth), str(net_width), steps)
 
     try:
         os.mkdir(path)
@@ -112,7 +113,7 @@ def main():
     #####################################
     print('{}\n'.format(net))
     ##############################################
-    
+   
     
     params = list(net.parameters())
     params = list(filter(lambda p: p.requires_grad, params))
@@ -141,7 +142,7 @@ def main():
     if args.lr_schedule:
         # 0.92**80 ~ 1e-3
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, factor=0.92, patience=100, threshold=1e-4, min_lr=1e-6)
+            optimizer, factor=0.92, patience=100, threshold=0.001, min_lr=1e-6, verbose=True)
 
     if last_step >= 0:
         state = torch.load('{}_save/{}.state'.format(args.out_filename,
@@ -387,7 +388,7 @@ def main():
 #                                    used_time,
 #                                    ))
                     
-                    print('step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
+                    print('step= {}, F= {:.6g}, F_std= {:.4g}, E= {:.6g}, E_std= {:.6g}, S= {:.6g}, S_std= {:.6g} , Ov= {:.4g}, beta= {:.4g}, samp_time ={:.2f}, tr_time= {:.2f}, us_time= {:.2f}'
                             .format(
                                     step,
                                     FE_mean,

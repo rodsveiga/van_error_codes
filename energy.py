@@ -1,4 +1,4 @@
-# 2D classical Ising model
+# LDPC: Sourlas code
 
 import torch
 import numpy as np
