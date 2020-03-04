@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 import torch
-import torchvision
+#import torchvision
 from torch.utils.tensorboard import SummaryWriter
 torch.manual_seed(12) 
 from numpy import sqrt
@@ -36,9 +36,11 @@ def main():
     K = args.K 
     p_prior = args.p_prior
     p = args.p
+    net_depth = str(args.net_depth)
+    net_width = str(args.net_width)
     
     
-    num_samples = 15
+    num_samples = 99
     num_codes = 1
     code = str(0)
 
@@ -64,7 +66,7 @@ def main():
  
     ##############
 
-    path = path__ + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_steps_%s/' % (Ns, Ms, Ks, ps, pps, steps)
+    path = path__ + 'model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s/' % (Ns, Ms, Ks, ps, pps, net_depth, net_width, steps)
 
 
 
@@ -96,33 +98,40 @@ def main():
         net = MADE(**vars(args))
         net.load_state_dict(torch.load(PATH))
 
-        sample_ = torch.zeros(message.shape)
+
+        # Sampling output does not keep tensor history, so memory usage does not blow
+        for param in net.parameters():
+            param.requires_grad = False
+
+        sample_ = torch.zeros(message.shape, requires_grad = False).float()
+
+        #sample_.requires_grad = False
 
     
         print('Running code %d' % k)
     
         for j in range(num_samples):
-            
-            #print('j= ', j)
-                       
+
             sample, _ = net.sample(args.num_messages)
 
-            #print('sample', sample)  
-            
-            overlap = (sample == message).sum().item() / (message.shape[0]*message.shape[1])
+
+            sample_.add_(sample) 
+            #overlap = (sample == message).sum().item() / (message.shape[0]*message.shape[1])
+            del sample
+            overlap = (torch.sign(sample_) == message).sum().item() / (message.shape[0]*message.shape[1])
             
             print('sample= %d -- overlap= %.5f' % (j, overlap))
 
-            #print('av_over_samples=', torch.sign(torch.sum(sample, dim=1)/100).sum().item())
-            #print('av_over_mess=', torch.sign(torch.sum(sample, dim=1)/100).sum().item())
 
-            sample_ = sample_ + sample
+             
 
-        print('-----Final sample', torch.sign(sample_))
+            #del sample
 
-        overlap_av = (torch.sign(sample_) == message).sum().item() / (message.shape[0]*message.shape[1])
+        #print('-----Final sample', torch.sign(sample_))
 
-        print('-----overplap_av=', overlap_av )
+        #overlap_av = (torch.sign(sample_) == message).sum().item() / (message.shape[0]*message.shape[1])
+
+        #print('-----overplap_av=', overlap_av )
 
         torch.save(torch.sign(sample_), path + 'av_sample_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
 
