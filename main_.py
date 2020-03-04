@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 import torch
-import torchvision
+#import torchvision
 from torch.utils.tensorboard import SummaryWriter
 torch.manual_seed(12) 
 from numpy import sqrt
