@@ -66,9 +66,17 @@ def main():
         path_ = '/home/rodsveiga/Dropbox/DOC/van_error_codes/models'
 
     # Creating the directory to save important information
+    PATH_ = path_ + '/N_%s_M_%s_K_%s_p_prior_%s_steps_%s' % (Ns, Ms, Ks, pps, steps)
+
+    try:
+        os.mkdir(PATH_)
+    except OSError:
+        print ("Creation of the directory %s failed" % PATH_)
+    else:
+        print ("Successfully created the directory %s " % PATH_)
 
 
-    path = path_+ '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s' % (Ns, Ms, Ks, ps, pps, str(net_depth), str(net_width), steps)
+    path = PATH_ + '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s' % (Ns, Ms, Ks, ps, pps, str(net_depth), str(net_width), steps)
 
     try:
         os.mkdir(path)
@@ -179,7 +187,7 @@ def main():
     start_time = time.time()
     
 
-    sample_start_time = time.time()
+    #sample_start_time = time.time()
        
     
     ########################################################################
@@ -243,7 +251,7 @@ def main():
                 file.write('{} = {}'.format(k, v) + '\n')
         
             file.write('\n' + '{}\n'.format(net) + '\n' + 'Total number of trainable parameters: {}'.format(nparams) + '\n')
-            file.write('init_time = {:.3f}'.format(init_time) + '\n' + '-----------------------------' + '\n' + 'Training...')
+            file.write('init_time = {:.3f}'.format(init_time) + '\n' + '-----------------------------' + '\n' + 'Training...' + '\n')
         ##############################################
         
         print('Code number= %d' % j)
@@ -296,9 +304,9 @@ def main():
             ### The user can choose the optimizer
             optimizer.zero_grad()
                 
-            sample_time += time.time() - sample_start_time
+            #sample_time += time.time() - sample_start_time
         
-            train_start_time = time.time()
+            t0 = time.time()
             
     
             # Log-prob is calculated from `sample`
@@ -336,8 +344,7 @@ def main():
             if args.lr_schedule:
                 scheduler.step(loss.mean())
     
-            train_time += time.time() - train_start_time
-            
+                      
             
     
             with torch.no_grad():
@@ -354,7 +361,10 @@ def main():
             ### Entropy: from `log_prob`
             ### Energy: from `energy`, calculated from the Hamiltonian
             ### Magnetization: from `sample`
-            
+
+            t1 = time.time()
+
+        
    
             if args.print_step and step % args.print_step == 0:
                 
@@ -368,27 +378,10 @@ def main():
                     E_std = ( energy_.std() / N ).item()
                     S_mean = ( -log_prob.mean() / N ).item()
                     S_std = ( -log_prob.std() / N ).item()
-                    overlap = (sample == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
+                    overlap_local = (sample == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
+
                     
-                    #my_log(
-#
-#                            'step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
-#                            .format(
-#                                    step,
-#                                    FE_mean,
-#                                    FE_std,
-#                                    E_mean,
-#                                    E_std,
-#                                    S_mean,
-#                                    S_std,
-#                                    overlap,
-#                                    beta,
-#                                    sample_time,
-#                                    train_time,
-#                                    used_time,
-#                                    ))
-                    
-                    print('step= {}, F= {:.6g}, F_std= {:.4g}, E= {:.6g}, E_std= {:.6g}, S= {:.6g}, S_std= {:.6g} , Ov= {:.4g}, beta= {:.4g}, samp_time ={:.2f}, tr_time= {:.2f}, us_time= {:.2f}'
+                    print('step= {}, F= {:.6f}, F_std= {:.4f}, E= {:.6f}, E_std= {:.6f}, S= {:.6f}, S_std= {:.6f}, Ov_proxy= {:.4f}, p= {:.4f}, p_prior= {:.4f}, beta:prior/p= {:.4f}, time= {:.3f}, total_time= {:.3f}'
                             .format(
                                     step,
                                     FE_mean,
@@ -397,16 +390,17 @@ def main():
                                     E_std,
                                     S_mean,
                                     S_std,
-                                    overlap,
-                                    beta,
-                                    sample_time,
-                                    train_time,
-                                    used_time,
+                                    overlap_local,
+                                    p,
+                                    p_prior,
+                                    beta_p / beta_prior,
+                                    t1-t0,
+                                    t1-start_time,
                                     ))
                     
                     if args.log:
                         
-                         file.write('step = {}, F = {:.6g}, F_std = {:.4g}, E = {:.6g}, E_std = {:.6g}, S = {:.6g}, S_std = {:.6g} , Over ={:.4g}, beta = {:.4g}, sample_time = {:.2f}, train_time = {:.2f}, used_time = {:.2f}'
+                         file.write('step= {}, F= {:.6f}, F_std= {:.4f}, E= {:.6f}, E_std= {:.6f}, S= {:.6f}, S_std= {:.6f}, Ov_proxy= {:.4f}, p= {:.4f}, p_prior= {:.4f}, beta:prior/p= {:.4f}, time= {:.3f}, total_time= {:.3f}'
                                     .format(
                                             step,
                                             FE_mean,
@@ -415,22 +409,85 @@ def main():
                                             E_std,
                                             S_mean,
                                             S_std,
-                                            overlap,
-                                            beta,
-                                            sample_time,
-                                            train_time,
-                                            used_time,
+                                            overlap_local,
+                                            p,
+                                            p_prior,
+                                            beta_p / beta_prior,
+                                            t1-t0,
+                                            t1-start_time,
                                             ) + '\n')
+
+                    if args.monitor_ov:
+
+                        if step % args.monitor_freq == 0:
+
+                            print('--Monitoring overlap until now')
+
+                            if args.log:
+                                file.write('--Monitoring overlap until now'+ '\n')
+
+                            sample__ = torch.zeros(sample_in.shape, requires_grad = False).float()
+
+                            for r in range(args.monitor_num_samples):
+
+                                with torch.no_grad():
+                                    sample_, _ = net.sample(args.num_messages)
+                                assert not sample_.requires_grad
+
+                                sample__.add_(sample_)
+
+                                ov__ = (torch.sign(sample__) == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
+                                print('sample= %d -- overlap= %.5f' % (r, ov__))
+
+                                if args.log:
+                                    file.write(('sample: {} -- overlap= {:.5f}'
+                                        .format(
+                                                r,
+                                                ov__,
+                                                ) + '\n'))
+
+
+                                del sample_
                         
+                            monitor_overlap = (torch.sign(sample__) == sample_in).sum().item() / (sample_in.shape[0]*sample_in.shape[1])
+                            del sample__
+
+                            print('Samples from the trained model: %d. Overlap= %.6f' % (args.monitor_num_samples, monitor_overlap))
+
+                            if args.log:
+                                file.write(('Samples from the trained model: {}. Overlap= {:.6f}'
+                                    .format(
+                                            args.monitor_num_samples,
+                                            monitor_overlap,
+                                            ) + '\n'))
+
+
+                            #print('Samples from the trained model: {}. Overlap= {:.6g}'
+                            # .format(
+                            #           args.monitor_num_samples,
+                            #          monitor_overlap,
+                            #          ))
+
+                            #if args.log:
+                            #    file.write('--Monitoring overlap until now')
+
+                            #    file.write(('Samples from the trained model: {}. Overlap= {:.6g}'
+                            #            .format(
+                            #                    args.monitor_num_samples,
+                            #                    monitor_overlap,
+                            #                    ) + '\n'))
+
+
                     
-                    
-                    if args.tensorboard:
-                        writer.add_scalar('Model/Free_Energy_mean', FE_mean, step)
-                        writer.add_scalar('Model/Free_Energy_std', FE_std, step)
-                        writer.add_scalar('Model/Energy_mean', E_mean, step)
-                        writer.add_scalar('Model/Entropy_mean', S_mean, step)
-                        writer.add_scalar('Model/Overlap', overlap, step)
-                        writer.add_scalar('Model/Beta_step', beta, step)
+                if args.tensorboard:
+                    writer.add_scalar('Model/Free_Energy_mean', FE_mean, step)
+                    writer.add_scalar('Model/Free_Energy_std', FE_std, step)
+                    writer.add_scalar('Model/Energy_mean', E_mean, step)
+                    writer.add_scalar('Model/Entropy_mean', S_mean, step)
+                    writer.add_scalar('Model/Ov_local', overlap_local, step)
+                    writer.add_scalar('Model/Beta_step', beta, step)
+                    if args.monitor_ov:
+                        writer.add_scalar('Model/Monitor_ov', monitor_overlap, step)
 
         
         
@@ -460,7 +517,7 @@ def main():
                             
             if args.save_model and step % save_step == 0:
                 if step > 0:
-                    torch.save(net.state_dict(), path + '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s_step_%s.pt' % (Ns, Ms, Ks,ps, pps, str(j), steps))
+                    torch.save(net.state_dict(), path + '/model_N_%s_M_%s_K_%s_p_%s_p_prior_%s_code_%s_step_%s.pt' % (Ns, Ms, Ks,ps, pps, str(j), str(step)))
                 
                     #my_log('')
         
@@ -468,15 +525,15 @@ def main():
             file.close()
 
         ps_ = '{:.3f}'.format(p)
-        overlap_ = '{:.6f}'.format(overlap)
+        #overlap_ = '{:.6f}'.format(overlap_local)
 
 
-        PATH_ = path_ + '/p_versus_overlap_N_%s_M_%s_K_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s_code_%s' % (Ns, Ms, Ks, pps, str(net_depth), str(net_width), steps, str(j))
-        file_ = open(PATH_, 'a')
-        file_.write(ps_ + '  ' + overlap_ + '\n') 
-        file_.close()
+        #PATH_ = path_ + '/p_versus_overlap_N_%s_M_%s_K_%s_p_prior_%s_net_depth_%s_net_width_%s_steps_%s_code_%s' % (Ns, Ms, Ks, pps, str(net_depth), str(net_width), steps, str(j))
+        #file_ = open(PATH_, 'a')
+        #file_.write(ps_ + '  ' + overlap_ + '\n') 
+        #file_.close()
 
-        print('overlap = ', overlap)
+        #print('overlap = ', overlap_local)
 
 
 

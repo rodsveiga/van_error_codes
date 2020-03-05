@@ -157,6 +157,24 @@ group.add_argument(
     help='do not print log to stdout, for better performance')
 
 
+
+group.add_argument(
+    '--monitor_ov', action='store_true', help='clear checkpoint')
+
+group.add_argument(
+    '--monitor_freq',
+    type=int,
+    default=1000,
+    help='number of steps to monitor the overlap')
+
+
+group.add_argument(
+    '--monitor_num_samples',
+    type=int,
+    default=99,
+    help='number of samples from the trained to monitor the overlap')
+
+
 group.add_argument(
     '--clear_checkpoint', action='store_true', help='clear checkpoint')
 

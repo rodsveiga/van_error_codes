@@ -41,8 +41,9 @@ def sourlas(sample, J, C, beta_p, beta_prior, device):
                 
         #####################################################################
          
-        en = - beta_p*(torch.dot(J[j], spinK).item()) - beta_prior*(sample[j].sum().item())
-        #en = - beta_p*(torch.dot(J0[j], spinK).item()) - beta_prior*(sample[j].sum().item())
+        #en = - beta_p*(torch.dot(J[j], spinK).item()) - beta_prior*(sample[j].sum().item())
+
+        en = - torch.dot(J[j], spinK).item() - (beta_prior/beta_p)*(sample[j].sum().item())
         ########################    
 
             #en = en - beta_p*spinK - beta_prior*sample_[j].sum().item()
