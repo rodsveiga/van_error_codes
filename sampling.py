@@ -61,7 +61,7 @@ def main():
 
     # Path for given choices of N, M, K, and so on
 
-    path__ = path_ + '_N_%s_M_%s_K_%s_p_prior_%s_steps_%s_code_%s/' % (Ns, Ms, Ks, pps, steps, code)
+    path__ = path_ + 'N_%s_M_%s_K_%s_p_prior_%s_steps_%s/' % (Ns, Ms, Ks, pps, steps)
 
  
     ##############
@@ -133,7 +133,7 @@ def main():
 
         #print('-----overplap_av=', overlap_av )
 
-        torch.save(torch.sign(sample_), path + 'av_sample_N_%s_M_%s_K_%s_p_%s_p_prior_%s.pt' % (Ns, Ms, Ks,ps, pps))
+        torch.save(torch.sign(sample_), path + 'av_sample_N_%s_M_%s_K_%s_p_%s_p_prior_%s_num_samples_%s.pt' % (Ns, Ms, Ks,ps, pps, str(num_samples)))
 
             
 
