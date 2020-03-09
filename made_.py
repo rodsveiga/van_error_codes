@@ -105,6 +105,7 @@ class MADE(nn.Module):
     def _build_simple_block(self, in_channels, out_channels):
         layers = []
         layers.append(nn.PReLU(in_channels * self.n, init=0.5))
+        ######layers.append(nn.Tanh())
         layers.append(
             MaskedLinear(
                 in_channels, out_channels, self.n, self.bias, exclusive=False))
@@ -116,6 +117,7 @@ class MADE(nn.Module):
         layers.append(
             ChannelLinear(in_channels, out_channels, self.n, self.bias))
         layers.append(nn.PReLU(in_channels * self.n, init=0.5))
+        ######layers.append(nn.Tanh())
         layers.append(
             MaskedLinear(
                 in_channels, out_channels, self.n, self.bias, exclusive=False))
